@@ -1,0 +1,6 @@
+{
+  "name": "Remix: TeleMaster Pro",
+  "description": "Smart Web Teleprompter \u0026 Script Pacing SaaS with auto-scroll, text mirroring, and WPM tracking.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

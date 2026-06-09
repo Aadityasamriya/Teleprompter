@@ -1,0 +1,36 @@
+import { useState } from 'react';
+import { AnimatePresence } from 'motion/react';
+import { useLocalStorage } from './hooks/useLocalStorage';
+import { Editor } from './components/Editor';
+import { Teleprompter } from './components/Teleprompter';
+import { APP_CONFIG } from './config';
+
+export default function App() {
+  const [script, setScript] = useLocalStorage('teleprompter_script', '');
+  const [wpm, setWpm] = useLocalStorage('teleprompter_wpm', APP_CONFIG.defaultWPM);
+  const [mode, setMode] = useState<'editor' | 'prompter'>('editor');
+
+  return (
+    <>
+      <AnimatePresence mode="wait">
+        {mode === 'editor' ? (
+          <Editor 
+            key="editor"
+            script={script} 
+            setScript={setScript} 
+            wpm={wpm} 
+            setWpm={setWpm} 
+            onPlay={() => setMode('prompter')} 
+          />
+        ) : (
+          <Teleprompter 
+            key="prompter"
+            script={script} 
+            wpm={wpm} 
+            onExit={() => setMode('editor')} 
+          />
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
