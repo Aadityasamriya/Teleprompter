@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none">
+  <defs>
+    <linearGradient id="velora" x1="12" y1="10" x2="82" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#67E8F9"/>
+      <stop offset=".45" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#E879F9"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="31" y1="27" x2="68" y2="68" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E0F2FE"/>
+      <stop offset=".5" stop-color="#A78BFA"/>
+      <stop offset="1" stop-color="#F0ABFC"/>
+    </linearGradient>
+  </defs>
+  <path d="M9 18 34 77c3 7 9 11 16 11s13-4 16-11l21-50c3-8-7-13-13-7L52 42 28 14C22 7 5 10 9 18Z" fill="url(#velora)"/>
+  <path d="M31 25h33c8 0 13 9 8 16L56 67c-5 7-16 4-16-5V34c0-5-4-9-9-9Z" fill="#070711" stroke="url(#screen)" stroke-width="2"/>
+  <path d="m47 38 14 9-14 9V38Z" fill="url(#screen)"/>
+  <path d="M37 30h19" stroke="#fff" stroke-opacity=".55" stroke-width="2" stroke-linecap="round"/>
+</svg>
