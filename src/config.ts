@@ -1,6 +1,6 @@
 export const APP_CONFIG = {
-  appName: 'TeleMaster Pro',
-  appTagline: 'A distraction-free teleprompter for creators',
-  appDescription: 'Paste or type your complete script here. There is no app-imposed character limit — long-form videos, podcasts, courses, reels and livestreams are all welcome. Your script stays on this device.',
+  appName: 'Velora',
+  appTagline: 'Your words. Your flow.',
+  appDescription: 'Write or paste your script here…\n\nBuilt for creators who want to speak naturally, stay on cue, and keep their eyes on the camera.',
   defaultWPM: 150,
 };
