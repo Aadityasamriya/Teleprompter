@@ -8,18 +8,22 @@
 
 @layer base {
   html, body, #root { min-height: 100%; width: 100%; }
-  html { background: #030303; color-scheme: dark; }
-  body { @apply bg-[#030303] text-gray-100 font-sans antialiased selection:bg-purple-500/30; margin: 0; overflow-x: hidden; }
+  html { background: #050505; color-scheme: dark; }
+  body { @apply text-gray-100 font-sans antialiased selection:bg-white/20; margin: 0; overflow-x: hidden; background: #050505; }
+  body::before { content: ""; position: fixed; inset: 0; pointer-events: none; background: radial-gradient(circle at 50% -10%, rgba(96,165,250,.055), transparent 32rem), radial-gradient(circle at 100% 60%, rgba(192,132,252,.035), transparent 28rem); }
   button, input, textarea, select { font: inherit; }
   button { -webkit-tap-highlight-color: transparent; }
   textarea { field-sizing: content; }
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 999px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.2); }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.09); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.16); }
 }
 
 @layer utilities {
+  .velora-shell { position: relative; }
+  .brand-mark { background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.08); }
+  .editor-card { background: rgba(9,9,10,.88); border: 1px solid rgba(255,255,255,.075); box-shadow: 0 24px 80px rgba(0,0,0,.32), inset 0 1px rgba(255,255,255,.025); backdrop-filter: blur(20px); }
   .smooth-scroll-container { -ms-overflow-style: none; scrollbar-width: none; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   .smooth-scroll-container::-webkit-scrollbar { display: none; }
   .control-btn { @apply flex min-w-12 flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-2 text-white/50 transition hover:bg-white/10 hover:text-white active:scale-95 sm:min-w-14 sm:rounded-2xl; }
