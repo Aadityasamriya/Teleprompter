@@ -1,8 +1,7 @@
-import { Play, Settings2, Sparkles, FileText, Clock, Trash2, Copy, CheckCircle2, Wand2, Loader2, Sparkle } from 'lucide-react';
-import { AffiliateSection } from './AffiliateSection';
-import { motion, AnimatePresence } from 'motion/react';
+import { useMemo, useState } from 'react';
+import { Clock, Download, FileText, FolderOpen, Play, Save, Sparkles, Trash2, Upload } from 'lucide-react';
+import { motion } from 'motion/react';
 import { APP_CONFIG } from '../config';
-import { useState } from 'react';
 
 interface EditorProps {
   script: string;
@@ -13,199 +12,118 @@ interface EditorProps {
 }
 
 export function Editor({ script, setScript, wpm, setWpm, onPlay }: EditorProps) {
-  const [copied, setCopied] = useState(false);
-  const [isAiProcessing, setIsAiProcessing] = useState(false);
-  const [showAiMenu, setShowAiMenu] = useState(false);
-  
-  const wordCount = script.trim() ? script.trim().split(/\s+/).length : 0;
-  // Calculate estimated time safely
-  const wpmValue = wpm > 0 ? wpm : 150;
-  const estimatedMin = Math.floor(wordCount / wpmValue);
-  const estimatedSec = Math.round((wordCount % wpmValue) / (wpmValue / 60));
+  const [saved, setSaved] = useState(false);
+  const [fileName, setFileName] = useState('My Script');
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(script);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const wordCount = useMemo(() => script.trim() ? script.trim().split(/\s+/u).length : 0, [script]);
+  const characterCount = script.length;
+  const estimatedSeconds = Math.max(0, Math.round((wordCount / Math.max(1, wpm)) * 60));
+  const estimatedMin = Math.floor(estimatedSeconds / 60);
+  const estimatedSec = estimatedSeconds % 60;
+
+  const markChanged = () => setSaved(false);
+
+  const handleSave = () => {
+    const blob = new Blob([script], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${fileName.trim() || 'script'}.txt`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setSaved(true);
+  };
+
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setScript(String(reader.result ?? ''));
+      setFileName(file.name.replace(/\.[^.]+$/, '') || 'Imported Script');
+      setSaved(false);
+    };
+    reader.readAsText(file);
+    event.target.value = '';
   };
 
   const handleClear = () => {
-    if (window.confirm('Are you sure you want to clear your script?')) {
+    if (!script || window.confirm('Clear this script? Your saved local copy will not be affected.')) {
       setScript('');
-    }
-  };
-
-  const handleAIEnhance = async (mode: string) => {
-    if (!script.trim()) return;
-    setIsAiProcessing(true);
-    setShowAiMenu(false);
-    try {
-      const response = await fetch('/api/ai/enhance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: script, mode })
-      });
-      if (!response.ok) throw new Error('AI request failed');
-      const data = await response.json();
-      if (data.result) {
-        setScript(data.result);
-      }
-    } catch (e) {
-      console.error(e);
-      alert('Failed to enhance script. Please try again.');
-    } finally {
-      setIsAiProcessing(false);
+      setSaved(false);
     }
   };
 
   return (
-    <motion.div
-       initial={{ opacity: 0, scale: 0.98 }}
-       animate={{ opacity: 1, scale: 1 }}
-       exit={{ opacity: 0, scale: 1.02 }}
-       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-       className="max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12 flex flex-col min-h-screen font-sans"
+    <motion.main
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      transition={{ duration: 0.35 }}
+      className="min-h-screen w-full px-3 py-4 sm:px-6 sm:py-7 lg:px-10"
     >
-      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-12 gap-6 relative z-10 w-full">
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <div className="bg-gradient-to-br from-purple-500 to-indigo-600 p-3 rounded-2xl shadow-[0_0_30px_rgba(139,92,246,0.3)] ring-1 ring-white/10 relative overflow-hidden group shrink-0">
-            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
-            <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-white relative z-10" />
+      <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-[1800px] flex-col">
+        <header className="mb-4 flex flex-col gap-4 sm:mb-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <div className="relative shrink-0 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 p-3 shadow-[0_0_35px_rgba(139,92,246,.28)]">
+              <Sparkles className="relative z-10 h-6 w-6 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="truncate font-display text-xl font-bold tracking-tight text-white sm:text-2xl">{APP_CONFIG.appName}</h1>
+              <p className="truncate text-xs font-medium text-white/40 sm:text-sm">{APP_CONFIG.appTagline}</p>
+            </div>
           </div>
-          <div className="flex-grow">
-            <h1 className="text-xl sm:text-3xl font-display font-bold tracking-tight text-white mb-0.5 truncate">
-              {APP_CONFIG.appName}
-            </h1>
-            <p className="text-xs sm:text-sm font-medium text-white/40 tracking-wide truncate">{APP_CONFIG.appTagline}</p>
-          </div>
-        </div>
-        
-        <button
-          onClick={onPlay}
-          disabled={!script.trim()}
-          className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-3 px-6 sm:px-8 py-4 bg-white text-black hover:bg-gray-100 disabled:bg-white/5 disabled:text-white/20 rounded-2xl font-bold text-base sm:text-lg transition-all duration-300 shadow-[0_0_40px_rgba(255,255,255,0.15)] hover:shadow-[0_0_60px_rgba(255,255,255,0.25)] disabled:shadow-none hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:transform-none shrink-0"
-        >
-          <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-current transition-transform group-hover:scale-110 disabled:scale-100" />
-          <span>Launch Studio</span>
-        </button>
-      </header>
 
-      <div className="relative flex flex-col flex-grow mb-16 bg-[#080808] border border-white/5 rounded-[2rem] shadow-xl overflow-hidden shadow-black/50">
-        
-        {/* Integrated Stats & Action Toolbar */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between border-b border-white/5 bg-white/[0.02]">
-          
-          {/* Stats Segment */}
-          <div className="flex flex-wrap sm:flex-nowrap items-center divide-x divide-white/5 border-b lg:border-b-0 border-white/5 w-full lg:w-auto">
-            <div className="flex items-center gap-3 px-6 py-4 flex-1 sm:flex-none">
-              <FileText className="w-4 h-4 text-white/40 shrink-0" />
-              <div className="flex flex-col items-start -space-y-0.5">
-                <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Words</span>
-                <span className="text-sm font-bold text-white">{wordCount}</span>
+          <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+            <label className="flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.04] px-4 py-3 text-sm font-semibold text-white/70 transition hover:bg-white/[.08] hover:text-white lg:flex-none">
+              <Upload className="h-4 w-4" /> Import .txt
+              <input type="file" accept=".txt,text/plain" className="hidden" onChange={handleImport} />
+            </label>
+            <button onClick={handleSave} disabled={!script} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.04] px-4 py-3 text-sm font-semibold text-white/70 transition hover:bg-white/[.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-30">
+              <Download className="h-4 w-4" /> {saved ? 'Saved' : 'Export'}
+            </button>
+            <button onClick={onPlay} disabled={!script.trim()} className="flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-black shadow-[0_0_35px_rgba(255,255,255,.12)] transition hover:-translate-y-0.5 hover:bg-gray-100 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/30 disabled:shadow-none">
+              <Play className="h-4 w-4 fill-current" /> Launch Teleprompter
+            </button>
+          </div>
+        </header>
+
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-white/[.07] bg-[#080808] shadow-2xl sm:rounded-[2rem]">
+          <div className="flex flex-col border-b border-white/[.06] bg-white/[.025]">
+            <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <FolderOpen className="h-4 w-4 shrink-0 text-purple-400" />
+                <input value={fileName} onChange={(e) => setFileName(e.target.value)} aria-label="Script name" className="min-w-0 w-full max-w-xs bg-transparent text-sm font-semibold text-white outline-none placeholder:text-white/20" placeholder="Script name" />
+                <span className="hidden text-xs text-white/25 sm:inline">Local only</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-white/35 sm:gap-4">
+                <span className="inline-flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> {wordCount.toLocaleString()} words</span>
+                <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> {estimatedMin}m {estimatedSec}s</span>
+                <span>{characterCount.toLocaleString()} chars</span>
               </div>
             </div>
-            
-            <div className="flex items-center gap-3 px-6 py-4 flex-1 sm:flex-none">
-              <Clock className="w-4 h-4 text-white/40 shrink-0" />
-              <div className="flex flex-col items-start -space-y-0.5">
-                <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Est. Time</span>
-                <span className="text-sm font-bold text-white">{estimatedMin}m {estimatedSec}s</span>
-              </div>
-            </div>
-          </div>
-          
-          {/* Controls Segment */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center divide-y sm:divide-y-0 sm:divide-x divide-white/5 w-full lg:w-auto">
-            
-            <div className="flex items-center justify-between sm:justify-start gap-4 px-6 py-4 group">
-              <div className="flex items-center gap-3">
-                <Settings2 className="w-4 h-4 text-purple-400 shrink-0" />
-                <div className="flex flex-col items-start -space-y-0.5">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Pacing</span>
-                  <span className="text-sm font-bold text-purple-400 w-[60px]">{wpm} WPM</span>
-                </div>
-              </div>
-              
-              <input
-                type="range"
-                min="50"
-                max="300"
-                step="5"
-                value={wpm}
-                onChange={(e) => setWpm(Number(e.target.value))}
-                className="w-full sm:w-32 h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-purple-500 hover:accent-purple-400 transition-all [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:shadow-lg"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2 px-6 py-3 sm:py-4 bg-white/[0.01] sm:bg-transparent relative">
-               
-               {/* AI Menu Container */}
-               <div className="relative">
-                 <button
-                   onClick={() => setShowAiMenu(!showAiMenu)}
-                   disabled={!script || isAiProcessing}
-                   className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-white/40 uppercase tracking-wider hover:text-purple-400 hover:bg-purple-400/10 rounded-lg transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-white/40"
-                   title="AI Magic Tools"
-                 >
-                   {isAiProcessing ? <Loader2 className="w-4 h-4 animate-spin text-purple-400" /> : <Wand2 className="w-4 h-4" />}
-                   <span className="sm:hidden lg:inline">{isAiProcessing ? 'Thinking...' : 'AI Magic'}</span>
-                 </button>
-                 
-                 <AnimatePresence>
-                   {showAiMenu && (
-                     <motion.div 
-                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                       className="absolute top-full lg:-top-2 lg:-translate-y-full right-0 mt-2 lg:mt-0 mb-2 w-48 bg-[#111] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50"
-                     >
-                        <div className="flex flex-col py-1">
-                          <button onClick={() => handleAIEnhance('fix')} className="flex items-center gap-2 px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors text-left"><Sparkle className="w-3.5 h-3.5 text-purple-400" /> Polish & Fix</button>
-                          <button onClick={() => handleAIEnhance('shorten')} className="flex items-center gap-2 px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors text-left"><Sparkle className="w-3.5 h-3.5 text-purple-400" /> Make Shorter</button>
-                          <button onClick={() => handleAIEnhance('expand')} className="flex items-center gap-2 px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors text-left"><Sparkle className="w-3.5 h-3.5 text-purple-400" /> Expand detail</button>
-                          <button onClick={() => handleAIEnhance('engaging')} className="flex items-center gap-2 px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors text-left"><Sparkle className="w-3.5 h-3.5 text-purple-400" /> Make Engaging</button>
-                        </div>
-                     </motion.div>
-                   )}
-                 </AnimatePresence>
-               </div>
-               
-               <button 
-                 onClick={handleClear} 
-                 disabled={!script}
-                 className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-white/40 uppercase tracking-wider hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-white/40"
-                 title="Clear Script"
-               >
-                 <Trash2 className="w-4 h-4" />
-                 <span className="sm:hidden lg:inline">Clear</span>
-               </button>
-               <button 
-                 onClick={handleCopy} 
-                 disabled={!script}
-                 className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-white/40 uppercase tracking-wider hover:text-white hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-white/40"
-                 title="Copy Script"
-               >
-                 {copied ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-                 <span className="sm:hidden lg:inline">{copied ? 'Copied' : 'Copy'}</span>
-               </button>
+            <div className="flex flex-col gap-3 border-t border-white/[.05] px-3 py-3 sm:flex-row sm:items-center sm:px-4">
+              <span className="text-[10px] font-bold uppercase tracking-[.18em] text-white/35">Reading speed</span>
+              <input aria-label="Words per minute" type="range" min="30" max="400" step="5" value={wpm} onChange={(e) => setWpm(Number(e.target.value))} className="w-full accent-purple-500 sm:max-w-xs" />
+              <output className="w-20 rounded-lg bg-purple-500/10 px-3 py-2 text-center text-xs font-bold text-purple-300">{wpm} WPM</output>
+              <button onClick={handleClear} disabled={!script} className="ml-auto inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-white/35 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-20"><Trash2 className="h-4 w-4" /> Clear</button>
             </div>
           </div>
 
-        </div>
-
-        {/* Text Area */}
-        <div className="relative flex-grow flex flex-col group">
-          <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-purple-500/5 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
           <textarea
             value={script}
-            onChange={(e) => setScript(e.target.value)}
+            onChange={(e) => { setScript(e.target.value); markChanged(); }}
             placeholder={APP_CONFIG.appDescription}
-            className="flex-grow w-full min-h-[400px] h-auto p-6 sm:p-10 bg-transparent text-[1.15rem] sm:text-[1.35rem] text-white/90 placeholder-white/20 focus:outline-none resize-none leading-relaxed custom-scrollbar relative z-10"
+            spellCheck
+            className="min-h-[55vh] flex-1 resize-none bg-transparent p-5 text-[1.05rem] leading-8 text-white/90 outline-none placeholder:text-white/20 sm:p-8 sm:text-[1.2rem] sm:leading-9 lg:p-10 lg:text-[1.3rem] lg:leading-10"
           />
-        </div>
-      </div>
 
-      <AffiliateSection />
-    </motion.div>
-  )
+          <div className="flex items-center justify-between border-t border-white/[.05] px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white/25 sm:px-6">
+            <span>Everything stays on this device</span>
+            <span className="hidden sm:inline">Ctrl/⌘ + Enter to launch</span>
+          </div>
+        </section>
+      </div>
+    </motion.main>
+  );
 }
