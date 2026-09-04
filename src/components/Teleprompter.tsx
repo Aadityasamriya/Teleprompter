@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, X, Type, FlipHorizontal, ArrowUp, ArrowDown, RotateCcw, Target, Mic } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDown, ArrowUp, FlipHorizontal, Gauge, Maximize, Minimize, Pause, Play, RotateCcw, Settings2, Target, Type, Volume2, VolumeX, X } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface TeleprompterProps {
@@ -8,6 +8,12 @@ interface TeleprompterProps {
   onExit: () => void;
 }
 
+const FONT_FAMILIES = [
+  { label: 'Clean', value: 'Inter, ui-sans-serif, system-ui, sans-serif' },
+  { label: 'Classic', value: 'Georgia, serif' },
+  { label: 'Creator', value: 'Space Grotesk, ui-sans-serif, system-ui, sans-serif' },
+];
+
 export function Teleprompter({ script, wpm, onExit }: TeleprompterProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [fontSize, setFontSize] = useState(72);
@@ -15,104 +21,60 @@ export function Teleprompter({ script, wpm, onExit }: TeleprompterProps) {
   const [showFocusLine, setShowFocusLine] = useState(true);
   const [speedMultiplier, setSpeedMultiplier] = useState(1);
   const [showHUD, setShowHUD] = useState(true);
-  const [voiceControl, setVoiceControl] = useState(false);
-  
+  const [showSettings, setShowSettings] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fontFamily, setFontFamily] = useState(FONT_FAMILIES[0].value);
+  const [lineHeight, setLineHeight] = useState(1.35);
+  const [textWidth, setTextWidth] = useState(1100);
+  const [countdown, setCountdown] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
+  const hudTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-hide HUD logic
+  const wordCount = useMemo(() => script.trim() ? script.trim().split(/\s+/u).length : 0, [script]);
+  const progress = containerRef.current ? Math.min(100, (containerRef.current.scrollTop / Math.max(1, containerRef.current.scrollHeight - containerRef.current.clientHeight)) * 100) : 0;
+
+  const wakeHUD = () => {
+    setShowHUD(true);
+    if (hudTimeoutRef.current) clearTimeout(hudTimeoutRef.current);
+    if (isPlaying) hudTimeoutRef.current = setTimeout(() => setShowHUD(false), 2600);
+  };
+
   useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout>;
-    
-    const wakeHUD = () => {
-      setShowHUD(true);
-      clearTimeout(timeout);
-      
-      if (isPlaying) {
-        timeout = setTimeout(() => {
-          setShowHUD(false);
-        }, 3000);
-      }
-    };
-
-    wakeHUD();
-    
-    window.addEventListener('mousemove', wakeHUD);
-    window.addEventListener('touchstart', wakeHUD);
-    window.addEventListener('keydown', wakeHUD);
-    
+    const events = ['mousemove', 'touchstart', 'keydown'];
+    events.forEach((event) => window.addEventListener(event, wakeHUD));
     return () => {
-      window.removeEventListener('mousemove', wakeHUD);
-      window.removeEventListener('touchstart', wakeHUD);
-      window.removeEventListener('keydown', wakeHUD);
-      clearTimeout(timeout);
+      events.forEach((event) => window.removeEventListener(event, wakeHUD));
+      if (hudTimeoutRef.current) clearTimeout(hudTimeoutRef.current);
     };
   }, [isPlaying]);
 
-  // Voice Command logic
   useEffect(() => {
-    if (!voiceControl) return;
-
-    // @ts-ignore
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Voice control is not supported in your browser.");
-      setVoiceControl(false);
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    
-    recognition.onresult = (event: any) => {
-      const lastResult = event.results[event.results.length - 1];
-      const text = lastResult[0].transcript.toLowerCase().trim();
-      
-      console.log("Voice Command Recognized:", text);
-
-      if (text.includes('play') || text.includes('start') || text.includes('resume')) {
-        setIsPlaying(true);
-      } else if (text.includes('pause') || text.includes('stop') || text.includes('wait')) {
-        setIsPlaying(false);
-      } else if (text.includes('faster') || text.includes('speed up')) {
-        setSpeedMultiplier(s => Math.min(s + 0.5, 5));
-      } else if (text.includes('slower') || text.includes('slow down')) {
-        setSpeedMultiplier(s => Math.max(s - 0.5, 0.2));
-      } else if (text.includes('reset') || text.includes('restart') || text.includes('top')) {
-        if (containerRef.current) containerRef.current.scrollTop = 0;
-      }
+    const handleKey = (event: KeyboardEvent) => {
+      const tag = (event.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      if (event.code === 'Space') { event.preventDefault(); setIsPlaying((value) => !value); }
+      if (event.key.toLowerCase() === 'r') resetScroll();
+      if (event.key.toLowerCase() === 'm') setIsFlipped((value) => !value);
+      if (event.key === 'ArrowUp') setSpeedMultiplier((value) => Math.min(5, +(value + 0.1).toFixed(1)));
+      if (event.key === 'ArrowDown') setSpeedMultiplier((value) => Math.max(0.2, +(value - 0.1).toFixed(1)));
+      if (event.key === 'Escape') { if (document.fullscreenElement) document.exitFullscreen(); else onExit(); }
     };
-    
-    recognition.onerror = (e: any) => {
-      console.error('Speech recognition error:', e.error);
-      // Restart on error if keeping it on
-      if (e.error !== 'not-allowed') {
-        setTimeout(() => {
-          try { recognition.start(); } catch {}
-        }, 1000);
-      } else {
-        setVoiceControl(false);
-      }
-    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onExit]);
 
-    try {
-      recognition.start();
-    } catch (e) {
-      console.error(e);
-    }
-
-    return () => {
-      try {
-        recognition.stop();
-      } catch (e) {}
-    };
-  }, [voiceControl]);
-
-  // Auto-scroll logic utilizing requestAnimationFrame for perfect smoothness
   useEffect(() => {
-    if (!isPlaying) {
+    const onFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onFullscreen);
+    return () => document.removeEventListener('fullscreenchange', onFullscreen);
+  }, []);
+
+  useEffect(() => {
+    if (!isPlaying || countdown > 0) {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       lastTimeRef.current = null;
       return;
@@ -120,163 +82,113 @@ export function Teleprompter({ script, wpm, onExit }: TeleprompterProps) {
 
     const scroll = (time: number) => {
       if (lastTimeRef.current !== null && containerRef.current) {
-        const delta = time - lastTimeRef.current;
-        
-        // Dynamic speed calculation based on WPM, font size, and user multiplier
-        // 150 WPM defaults to ~100px/sec at font size 72.
-        const baseSpeed = (wpm / 150) * (fontSize / 72) * 90;
-        const pixelsToScroll = (baseSpeed * speedMultiplier * delta) / 1000;
-        
-        containerRef.current.scrollTop += pixelsToScroll;
+        const delta = Math.min(100, time - lastTimeRef.current);
+        const pixelsPerSecond = (wpm / 150) * (fontSize / 72) * 95 * speedMultiplier;
+        containerRef.current.scrollTop += (pixelsPerSecond * delta) / 1000;
+        if (containerRef.current.scrollTop >= containerRef.current.scrollHeight - containerRef.current.clientHeight - 2) {
+          setIsPlaying(false);
+        }
       }
       lastTimeRef.current = time;
       animationRef.current = requestAnimationFrame(scroll);
     };
-
     animationRef.current = requestAnimationFrame(scroll);
+    return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current); };
+  }, [isPlaying, countdown, wpm, fontSize, speedMultiplier]);
 
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    };
-  }, [isPlaying, wpm, fontSize, speedMultiplier]);
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setTimeout(() => setCountdown((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown]);
 
-  const togglePlay = () => setIsPlaying(!isPlaying);
-
-  const resetScroll = () => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = 0;
+  const togglePlay = () => {
+    if (isPlaying) { setIsPlaying(false); return; }
+    setCountdown(3);
+    setIsPlaying(false);
+    if (soundEnabled) {
+      try { new AudioContext().resume(); } catch { /* Audio is optional */ }
     }
   };
 
+  const resetScroll = () => {
+    if (containerRef.current) containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsPlaying(false);
+  };
+
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch { /* Fullscreen may be unavailable */ }
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black z-50 flex flex-col"
-    >
-      {/* Focus Line Overlay */}
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex flex-col bg-black text-white">
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-40 h-1 bg-white/5">
+        <div className="h-full bg-purple-500 transition-[width] duration-200" style={{ width: `${progress}%` }} />
+      </div>
+
       {showFocusLine && (
-        <div className="fixed top-[30%] inset-x-0 h-16 pointer-events-none z-10 flex items-center justify-center">
-          <div className="w-full max-w-7xl mx-auto h-full border-y border-purple-500/30 bg-gradient-to-r from-transparent via-purple-500/10 to-transparent relative">
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-[1px] bg-purple-500" />
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-[1px] bg-purple-500" />
+        <div className="pointer-events-none fixed inset-x-0 top-[34%] z-20 flex h-16 -translate-y-1/2 items-center justify-center">
+          <div className="relative h-full w-full border-y border-purple-400/20 bg-gradient-to-r from-transparent via-purple-500/[.07] to-transparent" />
+        </div>
+      )}
+
+      <div ref={containerRef} className="smooth-scroll-container flex-1 overflow-y-auto px-4 py-[30vh] sm:px-8 lg:px-16 xl:px-24" style={{ transform: isFlipped ? 'scaleX(-1)' : undefined }}>
+        <article className="mx-auto" style={{ maxWidth: `${textWidth}px`, fontFamily, lineHeight }}>
+          {script.split('\n').map((paragraph, index) => (
+            <p key={`${index}-${paragraph.slice(0, 12)}`} className="mb-[.8em] whitespace-pre-wrap break-words text-center font-semibold tracking-[.01em] text-white drop-shadow-[0_2px_8px_rgba(0,0,0,.8)]" style={{ fontSize: `clamp(32px, ${fontSize / 10}vw, ${fontSize}px)` }}>
+              {paragraph || '\u00A0'}
+            </p>
+          ))}
+          <div className="h-[65vh]" aria-hidden="true" />
+        </article>
+      </div>
+
+      {countdown > 0 && (
+        <div className="pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="font-display text-[clamp(6rem,20vw,16rem)] font-bold tabular-nums text-white drop-shadow-2xl">{countdown}</div>
+        </div>
+      )}
+
+      <div className={`fixed bottom-4 left-1/2 z-50 w-[calc(100%-1rem)] max-w-5xl -translate-x-1/2 transition-all duration-500 sm:bottom-6 sm:w-auto ${showHUD ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-24 opacity-0'}`}>
+        <div className="rounded-[1.5rem] border border-white/10 bg-[#090909]/90 p-2 shadow-[0_0_60px_rgba(0,0,0,.8)] backdrop-blur-2xl sm:rounded-full sm:p-2.5">
+          <div className="flex flex-wrap items-center justify-center gap-1 sm:flex-nowrap sm:gap-2">
+            <button onClick={togglePlay} aria-label={isPlaying ? 'Pause' : 'Start'} className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 shadow-[0_0_25px_rgba(139,92,246,.3)] transition hover:scale-105 active:scale-95 sm:h-16 sm:w-16">
+              {isPlaying ? <Pause className="h-7 w-7 fill-current" /> : <Play className="ml-1 h-7 w-7 fill-current" />}
+            </button>
+
+            <div className="flex items-center gap-1 rounded-full bg-white/[.05] px-2 py-1.5">
+              <button onClick={() => setSpeedMultiplier((v) => Math.max(.2, +(v - .1).toFixed(1)))} className="rounded-full p-2 text-white/60 hover:bg-white/10 hover:text-white"><ArrowDown className="h-4 w-4" /></button>
+              <span className="min-w-14 text-center text-[10px] font-bold uppercase tracking-widest text-white/60"><Gauge className="mx-auto mb-0.5 h-4 w-4" />{speedMultiplier.toFixed(1)}×</span>
+              <button onClick={() => setSpeedMultiplier((v) => Math.min(5, +(v + .1).toFixed(1)))} className="rounded-full p-2 text-white/60 hover:bg-white/10 hover:text-white"><ArrowUp className="h-4 w-4" /></button>
+            </div>
+
+            <button onClick={resetScroll} title="Restart (R)" className="control-btn"><RotateCcw className="h-5 w-5" /><span>Reset</span></button>
+            <button onClick={() => setIsFlipped((v) => !v)} title="Mirror (M)" className={`control-btn ${isFlipped ? 'active-control' : ''}`}><FlipHorizontal className="h-5 w-5" /><span>Mirror</span></button>
+            <button onClick={() => setShowFocusLine((v) => !v)} className={`control-btn ${showFocusLine ? 'active-control' : ''}`}><Target className="h-5 w-5" /><span>Focus</span></button>
+            <button onClick={() => setSoundEnabled((v) => !v)} className="control-btn"><span>{soundEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}</span><span>Sound</span></button>
+            <button onClick={() => setShowSettings((v) => !v)} className={`control-btn ${showSettings ? 'active-control' : ''}`}><Settings2 className="h-5 w-5" /><span>Style</span></button>
+            <button onClick={toggleFullscreen} className="control-btn">{isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}<span>Screen</span></button>
+            <button onClick={onExit} className="control-btn text-red-300 hover:bg-red-500/10 hover:text-red-200"><X className="h-5 w-5" /><span>Exit</span></button>
+          </div>
+        </div>
+      </div>
+
+      {showSettings && (
+        <div className="fixed bottom-24 left-1/2 z-[60] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-2xl border border-white/10 bg-[#101010]/95 p-4 shadow-2xl backdrop-blur-2xl sm:bottom-24">
+          <div className="mb-4 flex items-center justify-between"><h2 className="text-sm font-bold">Display settings</h2><button onClick={() => setShowSettings(false)}><X className="h-4 w-4 text-white/50" /></button></div>
+          <div className="space-y-4 text-xs text-white/60">
+            <label className="block">Text size <input type="range" min="32" max="140" value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="mt-2 w-full accent-purple-500" /></label>
+            <label className="block">Text width <input type="range" min="600" max="1800" step="50" value={textWidth} onChange={(e) => setTextWidth(Number(e.target.value))} className="mt-2 w-full accent-purple-500" /></label>
+            <label className="block">Line spacing <input type="range" min="1.1" max="1.8" step=".05" value={lineHeight} onChange={(e) => setLineHeight(Number(e.target.value))} className="mt-2 w-full accent-purple-500" /></label>
+            <label className="block">Font <select value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 p-2 text-white"><option value={FONT_FAMILIES[0].value}>Clean</option><option value={FONT_FAMILIES[1].value}>Classic</option><option value={FONT_FAMILIES[2].value}>Creator</option></select></label>
           </div>
         </div>
       )}
 
-      {/* Scrollable Prompter Area */}
-      <div 
-        ref={containerRef}
-        className="flex-grow overflow-y-auto px-6 md:px-24 py-32 smooth-scroll-container"
-        style={{ transform: isFlipped ? 'scaleX(-1)' : 'none' }}
-      >
-        <div 
-          className="max-w-5xl mx-auto"
-          style={{ 
-             fontSize: `${fontSize}px`, 
-             lineHeight: 1.4,
-             paddingBottom: '80vh', // Allow scrolling past the last line until it goes off screen
-             paddingTop: '20vh'
-          }}
-        >
-          {script.split('\n').map((paragraph, i) => (
-            <p key={i} className="mb-10 text-white font-semibold whitespace-pre-wrap tracking-wide drop-shadow-md">
-              {paragraph}
-            </p>
-          ))}
-        </div>
-      </div>
-
-      {/* Floating Controls HUD */}
-      <div 
-        className={`fixed bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 w-[95vw] sm:w-auto max-w-[700px] bg-[#0a0a0a]/80 backdrop-blur-3xl border border-white/10 p-3 sm:p-4 rounded-[2rem] sm:rounded-full flex flex-wrap sm:flex-nowrap justify-center items-center gap-2 sm:gap-5 shadow-[0_0_50px_rgba(0,0,0,0.8)] transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] z-50 ${showHUD ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}
-      >
-        
-        <button 
-          onClick={togglePlay} 
-          className="p-4 sm:p-5 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full text-white hover:shadow-[0_0_30px_rgba(139,92,246,0.5)] transition-all hover:scale-110 active:scale-95"
-        >
-          {isPlaying ? <Pause className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current ml-1" />}
-        </button>
-
-        <div className="h-10 w-px bg-white/10 mx-1 hidden sm:block" />
-
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-[9px] sm:text-[10px] uppercase text-white/40 font-bold tracking-widest">Speed x{speedMultiplier.toFixed(1)}</span>
-          <div className="flex items-center gap-1 bg-white/5 rounded-full p-1">
-            <button onClick={() => setSpeedMultiplier(Math.max(0.2, speedMultiplier - 0.1))} className="p-2 hover:bg-white/10 rounded-full text-white/70 hover:text-white transition-colors">
-              <ArrowDown className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-            <button onClick={() => setSpeedMultiplier(speedMultiplier + 0.1)} className="p-2 hover:bg-white/10 rounded-full text-white/70 hover:text-white transition-colors">
-              <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-          </div>
-        </div>
-
-        <div className="h-10 w-px bg-white/10 mx-1 hidden sm:block" />
-
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-[9px] sm:text-[10px] uppercase text-white/40 font-bold tracking-widest">Text Size</span>
-          <div className="flex items-center gap-1 bg-white/5 rounded-full p-1">
-            <button onClick={() => setFontSize(Math.max(32, fontSize - 4))} className="p-2 hover:bg-white/10 rounded-full text-white/70 hover:text-white transition-colors">
-              <Type className="w-3 h-3 sm:w-4 sm:h-4" />
-            </button>
-            <button onClick={() => setFontSize(Math.min(140, fontSize + 4))} className="p-2 hover:bg-white/10 rounded-full text-white/70 hover:text-white transition-colors">
-              <Type className="w-5 h-5 sm:w-6 sm:h-6" />
-            </button>
-          </div>
-        </div>
-
-        <div className="h-10 w-px bg-white/10 mx-1 hidden sm:block" />
-
-        <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-center mt-2 sm:mt-0">
-          <button 
-            onClick={resetScroll} 
-            className="p-3 rounded-2xl transition-colors flex flex-col items-center gap-1.5 text-white/50 hover:bg-white/10 hover:text-white"
-            title="Restart from top"
-          >
-            <RotateCcw className="w-5 h-5" />
-            <span className="text-[9px] uppercase font-bold tracking-widest hidden sm:block">Reset</span>
-          </button>
-
-          <button 
-            onClick={() => setIsFlipped(!isFlipped)} 
-            className={`p-3 rounded-2xl transition-colors flex flex-col items-center gap-1.5 ${isFlipped ? 'bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/50' : 'text-white/50 hover:bg-white/10 hover:text-white'}`}
-            title="Mirror for physical teleprompter"
-          >
-            <FlipHorizontal className="w-5 h-5" />
-            <span className="text-[9px] uppercase font-bold tracking-widest hidden sm:block">Mirror</span>
-          </button>
-
-          <button 
-            onClick={() => setShowFocusLine(!showFocusLine)} 
-            className={`p-3 rounded-2xl transition-colors flex flex-col items-center gap-1.5 ${showFocusLine ? 'bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/50' : 'text-white/50 hover:bg-white/10 hover:text-white'}`}
-            title="Toggle Focus Line"
-          >
-            <Target className="w-5 h-5" />
-            <span className="text-[9px] uppercase font-bold tracking-widest hidden sm:block">Focus</span>
-          </button>
-
-          <button 
-            onClick={() => setVoiceControl(!voiceControl)} 
-            className={`p-3 rounded-2xl transition-colors flex flex-col items-center gap-1.5 ${voiceControl ? 'bg-green-500/20 text-green-400 ring-1 ring-green-500/50 relative overflow-hidden' : 'text-white/50 hover:bg-white/10 hover:text-white'}`}
-            title="Voice Commands (Play, Pause, Faster, Slower, Reset)"
-          >
-            {voiceControl && <div className="absolute inset-0 bg-green-500/20 animate-pulse pointer-events-none" />}
-            <Mic className="w-5 h-5 relative z-10" />
-            <span className="text-[9px] uppercase font-bold tracking-widest hidden sm:block relative z-10">Voice</span>
-          </button>
-
-          <div className="h-10 w-px bg-white/10 mx-1" />
-
-          <button onClick={onExit} className="p-3 text-red-400 hover:bg-red-500/20 rounded-2xl transition-all duration-300 flex flex-col items-center gap-1.5 hover:scale-105 active:scale-95">
-            <X className="w-5 h-5 sm:w-6 sm:h-6" />
-            <span className="text-[9px] uppercase font-bold tracking-widest hidden sm:block">Exit</span>
-          </button>
-        </div>
-
-      </div>
+      <div className="pointer-events-none fixed left-4 top-4 z-40 hidden items-center gap-2 text-[10px] font-bold uppercase tracking-[.18em] text-white/25 sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-green-400" /> Offline • {wordCount.toLocaleString()} words</div>
     </motion.div>
-  )
+  );
 }
