@@ -99,7 +99,7 @@ export function Teleprompter({ script, wpm, onExit }: TeleprompterProps) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: .2 }} className="fixed inset-0 z-50 flex flex-col bg-[#050506] text-white">
       <div className="pointer-events-none fixed inset-x-0 top-0 z-40 h-[2px] bg-white/5"><div className="h-full bg-violet-400 transition-[width] duration-150" style={{ width: `${progress}%` }} /></div>
-      <div className="pointer-events-none fixed left-5 top-5 z-40 hidden items-center gap-2 sm:flex"><img src="/velora-mark.svg" alt="Velora" className="h-7 w-7 rounded-lg opacity-80" /><span className="text-[10px] font-bold uppercase tracking-[.2em] text-white/25">Velora</span></div>
+      <div className="pointer-events-none fixed left-5 top-5 z-40 hidden items-center gap-2 sm:flex"><img src="/teleqen-mark.svg" alt="Teleqen" className="h-8 w-8 rounded-[10px] opacity-90" /><span className="text-[10px] font-bold uppercase tracking-[.22em] text-white/30">Teleqen</span></div>
       {showFocusLine && <div className="pointer-events-none fixed inset-x-0 top-[34%] z-20 h-16 -translate-y-1/2"><div className="h-full w-full border-y border-violet-300/15 bg-gradient-to-r from-transparent via-violet-400/[.045] to-transparent" /></div>}
       <div ref={containerRef} className="smooth-scroll-container flex-1 overflow-y-auto px-4 py-[30vh] sm:px-8 lg:px-16 xl:px-24" style={{ transform: isFlipped ? 'scaleX(-1)' : undefined }}>
         <article className="mx-auto" style={{ maxWidth: `${textWidth}px`, fontFamily, lineHeight }}>
