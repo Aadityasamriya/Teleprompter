@@ -3,7 +3,6 @@ import { ArrowDown, ArrowUp, FlipHorizontal, Gauge, Maximize, Minimize, Pause, P
 import { motion } from 'motion/react';
 
 interface TeleprompterProps { script: string; wpm: number; onExit: () => void; }
-
 const FONT_FAMILIES = [
   { label: 'Clean', value: 'DM Sans, ui-sans-serif, system-ui, sans-serif' },
   { label: 'Classic', value: 'Georgia, serif' },
@@ -25,7 +24,6 @@ export function Teleprompter({ script, wpm, onExit }: TeleprompterProps) {
   const [countdown, setCountdown] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [progress, setProgress] = useState(0);
-
   const containerRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
@@ -34,11 +32,7 @@ export function Teleprompter({ script, wpm, onExit }: TeleprompterProps) {
   const wordCount = useMemo(() => script.trim() ? script.trim().split(/\s+/u).length : 0, [script]);
 
   useEffect(() => {
-    const wake = () => {
-      setShowHUD(true);
-      if (hudTimeoutRef.current) clearTimeout(hudTimeoutRef.current);
-      if (isPlaying) hudTimeoutRef.current = setTimeout(() => setShowHUD(false), 2600);
-    };
+    const wake = () => { setShowHUD(true); if (hudTimeoutRef.current) clearTimeout(hudTimeoutRef.current); if (isPlaying) hudTimeoutRef.current = setTimeout(() => setShowHUD(false), 2600); };
     const events = ['mousemove', 'touchstart', 'keydown'];
     events.forEach((event) => window.addEventListener(event, wake, { passive: true }));
     return () => { events.forEach((event) => window.removeEventListener(event, wake)); if (hudTimeoutRef.current) clearTimeout(hudTimeoutRef.current); };
@@ -66,12 +60,7 @@ export function Teleprompter({ script, wpm, onExit }: TeleprompterProps) {
   }, []);
 
   useEffect(() => {
-    if (!isPlaying || countdown > 0) {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
-      lastTimeRef.current = null;
-      return;
-    }
+    if (!isPlaying || countdown > 0) { if (animationRef.current) cancelAnimationFrame(animationRef.current); animationRef.current = null; lastTimeRef.current = null; return; }
     const scroll = (time: number) => {
       const container = containerRef.current;
       if (container && lastTimeRef.current !== null) {
@@ -79,10 +68,7 @@ export function Teleprompter({ script, wpm, onExit }: TeleprompterProps) {
         const pixelsPerSecond = (wpm / 150) * (fontSize / 72) * 95 * speedMultiplier;
         container.scrollTop += (pixelsPerSecond * delta) / 1000;
         const maxScroll = Math.max(1, container.scrollHeight - container.clientHeight);
-        if (time - progressTimeRef.current > 100) {
-          progressTimeRef.current = time;
-          setProgress(Math.min(100, (container.scrollTop / maxScroll) * 100));
-        }
+        if (time - progressTimeRef.current > 100) { progressTimeRef.current = time; setProgress(Math.min(100, (container.scrollTop / maxScroll) * 100)); }
         if (container.scrollTop >= maxScroll - 2) setIsPlaying(false);
       }
       lastTimeRef.current = time;
@@ -94,22 +80,19 @@ export function Teleprompter({ script, wpm, onExit }: TeleprompterProps) {
 
   useEffect(() => {
     if (countdown <= 0) return;
-    const timer = window.setTimeout(() => setCountdown((value) => value - 1), 1000);
+    const timer = window.setTimeout(() => {
+      if (countdown === 1) { setCountdown(0); setIsPlaying(true); }
+      else setCountdown((value) => value - 1);
+    }, 1000);
     return () => window.clearTimeout(timer);
-  }, [countdown]);
-
-  useEffect(() => {
-    if (countdown === 0 && isPlaying) return;
-    if (countdown === 0 && lastTimeRef.current !== null) setIsPlaying(true);
   }, [countdown]);
 
   const togglePlay = () => {
     if (isPlaying) { setIsPlaying(false); return; }
     setCountdown(3);
     setIsPlaying(false);
-    if (soundEnabled) { try { const ctx = new AudioContext(); void ctx.resume(); setTimeout(() => void ctx.close(), 150); } catch { /* optional */ } }
+    if (soundEnabled) { try { const ctx = new AudioContext(); void ctx.resume(); window.setTimeout(() => void ctx.close(), 150); } catch { /* optional */ } }
   };
-
   const resetScroll = () => { containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); setProgress(0); setIsPlaying(false); setCountdown(0); lastTimeRef.current = null; };
   const toggleFullscreen = async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); } catch { /* unavailable */ } };
 
